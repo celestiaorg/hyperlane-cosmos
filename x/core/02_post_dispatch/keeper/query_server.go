@@ -250,3 +250,91 @@ func (qs queryServer) AggregationHooks(ctx context.Context, req *types.QueryAggr
 		Pagination:       pagination,
 	}, nil
 }
+
+//
+// Rate Limited Hook
+
+func (qs queryServer) RateLimitedHook(ctx context.Context, req *types.QueryRateLimitedHookRequest) (*types.QueryRateLimitedHookResponse, error) {
+	hookId, err := util.DecodeHexAddress(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	hook, err := qs.k.rateLimitedHooks.Get(ctx, hookId.GetInternalId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryRateLimitedHookResponse{
+		RateLimitedHook: &hook,
+	}, nil
+}
+
+func (qs queryServer) RateLimitedHooks(ctx context.Context, req *types.QueryRateLimitedHooksRequest) (*types.QueryRateLimitedHooksResponse, error) {
+	values, pagination, err := util.GetPaginatedFromMap(ctx, qs.k.rateLimitedHooks, req.Pagination)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryRateLimitedHooksResponse{
+		RateLimitedHooks: values,
+		Pagination:       pagination,
+	}, nil
+}
+
+func (qs queryServer) RateLimitBuckets(ctx context.Context, req *types.QueryRateLimitBucketsRequest) (*types.QueryRateLimitBucketsResponse, error) {
+	hookId, err := util.DecodeHexAddress(req.HookId)
+	if err != nil {
+		return nil, err
+	}
+
+	rng := collections.NewPrefixedPairRange[uint64, []byte](hookId.GetInternalId())
+	iter, err := qs.k.rateLimitBuckets.Iterate(ctx, rng)
+	if err != nil {
+		return nil, err
+	}
+
+	buckets, err := iter.Values()
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]types.TokenRateLimit, len(buckets))
+	for i := range buckets {
+		responses[i] = qs.tokenRateLimit(ctx, buckets[i])
+	}
+
+	return &types.QueryRateLimitBucketsResponse{
+		TokenRateLimits: responses,
+	}, nil
+}
+
+func (qs queryServer) RateLimitBucket(ctx context.Context, req *types.QueryRateLimitBucketRequest) (*types.QueryRateLimitBucketResponse, error) {
+	hookId, err := util.DecodeHexAddress(req.HookId)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenId, err := util.DecodeHexAddress(req.TokenId)
+	if err != nil {
+		return nil, err
+	}
+
+	bucket, err := qs.k.rateLimitBuckets.Get(ctx, types.RateLimitBucketKey(hookId, tokenId))
+	if err != nil {
+		return nil, err
+	}
+
+	response := qs.tokenRateLimit(ctx, bucket)
+	return &types.QueryRateLimitBucketResponse{
+		TokenRateLimit: response,
+	}, nil
+}
+
+func (qs queryServer) tokenRateLimit(ctx context.Context, bucket types.RateLimitBucket) types.TokenRateLimit {
+	return types.TokenRateLimit{
+		Bucket:            bucket,
+		CurrentLevel:      qs.k.CurrentRateLimitLevel(ctx, bucket),
+		EffectiveCapacity: rateLimitEffectiveCapacity(bucket),
+	}
+}

@@ -124,3 +124,61 @@ message AggregationHook {
     (gogoproto.nullable) = false
   ];
 }
+
+// RateLimitedHook ...
+message RateLimitedHook {
+  // id ...
+  string id = 1 [
+    (gogoproto.customtype) =
+        "github.com/bcp-innovations/hyperlane-cosmos/util.HexAddress",
+    (gogoproto.nullable) = false
+  ];
+
+  // owner ...
+  string owner = 2 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // mailbox_id ...
+  string mailbox_id = 3 [
+    (gogoproto.customtype) =
+        "github.com/bcp-innovations/hyperlane-cosmos/util.HexAddress",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// RateLimitBucket ...
+message RateLimitBucket {
+  // hook_id ...
+  string hook_id = 1 [
+    (gogoproto.customtype) =
+        "github.com/bcp-innovations/hyperlane-cosmos/util.HexAddress",
+    (gogoproto.nullable) = false
+  ];
+
+  // token_id ...
+  string token_id = 2 [
+    (gogoproto.customtype) =
+        "github.com/bcp-innovations/hyperlane-cosmos/util.HexAddress",
+    (gogoproto.nullable) = false
+  ];
+
+  // max_capacity ...
+  string max_capacity = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // filled_level ...
+  string filled_level = 4 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // refill_rate ...
+  string refill_rate = 5 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // last_updated ...
+  uint64 last_updated = 6;
+}

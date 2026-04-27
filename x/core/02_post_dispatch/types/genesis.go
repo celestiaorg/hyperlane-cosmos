@@ -11,6 +11,8 @@ func NewGenesisState() *GenesisState {
 		MerkleTreeHooks:  []MerkleTreeHook{},
 		NoopHooks:        []NoopHook{},
 		AggregationHooks: []AggregationHook{},
+		RateLimitedHooks: []RateLimitedHook{},
+		RateLimitBuckets: []RateLimitBucket{},
 	}
 }
 
@@ -35,6 +37,26 @@ func (gs *GenesisState) Validate() error {
 			return fmt.Errorf("duplicate aggregation hook: %s", aggregationHook.Id)
 		}
 		aggregationHookMap[aggregationHook.Id.GetInternalId()] = struct{}{}
+	}
+
+	rateLimitedHookMap := make(map[uint64]struct{})
+	for _, hook := range gs.RateLimitedHooks {
+		if _, ok := rateLimitedHookMap[hook.Id.GetInternalId()]; ok {
+			return fmt.Errorf("duplicate rate limited hook: %s", hook.Id)
+		}
+		rateLimitedHookMap[hook.Id.GetInternalId()] = struct{}{}
+	}
+
+	bucketMap := make(map[string]struct{})
+	for _, bucket := range gs.RateLimitBuckets {
+		if _, ok := rateLimitedHookMap[bucket.HookId.GetInternalId()]; !ok {
+			return fmt.Errorf("rate limited hook does not exist: %s", bucket.HookId)
+		}
+		key := bucket.HookId.String() + "/" + bucket.TokenId.String()
+		if _, ok := bucketMap[key]; ok {
+			return fmt.Errorf("duplicate rate limit bucket: %s", key)
+		}
+		bucketMap[key] = struct{}{}
 	}
 
 	return nil

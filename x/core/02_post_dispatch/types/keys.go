@@ -1,7 +1,10 @@
 package types
 
 import (
+	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
+
+	"github.com/bcp-innovations/hyperlane-cosmos/util"
 )
 
 var (
@@ -10,6 +13,8 @@ var (
 	MerkleTreeHooksKey               = []byte{SubModuleId, 4}
 	NoopHooksKey                     = []byte{SubModuleId, 5}
 	AggregationHooksKey              = []byte{SubModuleId, 6}
+	RateLimitedHooksKey              = []byte{SubModuleId, 7}
+	RateLimitBucketsKey              = []byte{SubModuleId, 8}
 )
 
 const (
@@ -34,3 +39,12 @@ const (
 	POST_DISPATCH_HOOK_TYPE_ARB_L2_TO_L1
 	POST_DISPATCH_HOOK_TYPE_OP_L2_TO_L1
 )
+
+const RateLimitDurationSeconds uint64 = 86400
+
+var RateLimitDuration = math.NewInt(int64(RateLimitDurationSeconds))
+
+// RateLimitBucketKey creates and returns a new bucket key.
+func RateLimitBucketKey(hookId, tokenId util.HexAddress) collections.Pair[uint64, []byte] {
+	return collections.Join(hookId.GetInternalId(), tokenId.Bytes())
+}
