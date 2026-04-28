@@ -12,7 +12,7 @@ func NewGenesisState() *GenesisState {
 		NoopHooks:        []NoopHook{},
 		AggregationHooks: []AggregationHook{},
 		RateLimitedHooks: []RateLimitedHook{},
-		RateLimitBuckets: []RateLimitBucket{},
+		TokenRateLimits:  []TokenRateLimit{},
 	}
 }
 
@@ -47,16 +47,16 @@ func (gs *GenesisState) Validate() error {
 		rateLimitedHookMap[hook.Id.GetInternalId()] = struct{}{}
 	}
 
-	bucketMap := make(map[string]struct{})
-	for _, bucket := range gs.RateLimitBuckets {
-		if _, ok := rateLimitedHookMap[bucket.HookId.GetInternalId()]; !ok {
-			return fmt.Errorf("rate limited hook does not exist: %s", bucket.HookId)
+	tokenRateLimitMap := make(map[string]struct{})
+	for _, tokenRateLimit := range gs.TokenRateLimits {
+		if _, ok := rateLimitedHookMap[tokenRateLimit.HookId.GetInternalId()]; !ok {
+			return fmt.Errorf("rate limited hook does not exist: %s", tokenRateLimit.HookId)
 		}
-		key := bucket.HookId.String() + "/" + bucket.TokenId.String()
-		if _, ok := bucketMap[key]; ok {
-			return fmt.Errorf("duplicate rate limit bucket: %s", key)
+		key := tokenRateLimit.HookId.String() + "/" + tokenRateLimit.TokenId.String()
+		if _, ok := tokenRateLimitMap[key]; ok {
+			return fmt.Errorf("duplicate token rate limit: %s", key)
 		}
-		bucketMap[key] = struct{}{}
+		tokenRateLimitMap[key] = struct{}{}
 	}
 
 	return nil

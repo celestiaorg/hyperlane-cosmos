@@ -202,31 +202,31 @@ func (ms msgServer) SetRateLimit(ctx context.Context, msg *types.MsgSetRateLimit
 	}
 
 	refillRate := msg.MaxCapacity.Quo(types.RateLimitDuration)
-	effectiveCapacity := refillRate.Mul(types.RateLimitDuration)
 	now := currentBlockUnix(ctx)
 
-	bucket := types.RateLimitBucket{
+	tokenRateLimit := types.TokenRateLimit{
 		HookId:      msg.HookId,
 		TokenId:     msg.TokenId,
 		MaxCapacity: msg.MaxCapacity,
-		FilledLevel: effectiveCapacity,
 		RefillRate:  refillRate,
 		LastUpdated: now,
 	}
+	effectiveCapacity := tokenRateLimit.EffectiveCapacity()
+	tokenRateLimit.FilledLevel = effectiveCapacity
 
-	key := types.RateLimitBucketKey(msg.HookId, msg.TokenId)
-	existing, err := ms.k.rateLimitBuckets.Get(ctx, key)
+	key := types.TokenRateLimitKey(msg.HookId, msg.TokenId)
+	existing, err := ms.k.tokenRateLimits.Get(ctx, key)
 	if err == nil {
 		currentLevel := ms.k.CurrentRateLimitLevel(ctx, existing)
 		if currentLevel.GT(effectiveCapacity) {
 			currentLevel = effectiveCapacity
 		}
-		bucket.FilledLevel = currentLevel
+		tokenRateLimit.FilledLevel = currentLevel
 	} else if !stderrors.Is(err, collections.ErrNotFound) {
 		return nil, err
 	}
 
-	if err := ms.k.rateLimitBuckets.Set(ctx, key, bucket); err != nil {
+	if err := ms.k.tokenRateLimits.Set(ctx, key, tokenRateLimit); err != nil {
 		return nil, err
 	}
 
@@ -259,11 +259,11 @@ func (ms msgServer) RemoveRateLimit(ctx context.Context, msg *types.MsgRemoveRat
 		return nil, errors.Wrapf(types.ErrUnauthorized, "owner %s is not hook owner", msg.Owner)
 	}
 
-	key := types.RateLimitBucketKey(msg.HookId, msg.TokenId)
-	if has, err := ms.k.rateLimitBuckets.Has(ctx, key); err != nil {
+	key := types.TokenRateLimitKey(msg.HookId, msg.TokenId)
+	if has, err := ms.k.tokenRateLimits.Has(ctx, key); err != nil {
 		return nil, err
 	} else if has {
-		if err := ms.k.rateLimitBuckets.Remove(ctx, key); err != nil {
+		if err := ms.k.tokenRateLimits.Remove(ctx, key); err != nil {
 			return nil, err
 		}
 	}

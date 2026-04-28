@@ -19,7 +19,7 @@ type Keeper struct {
 	aggregationHooks collections.Map[uint64, types.AggregationHook]
 
 	rateLimitedHooks collections.Map[uint64, types.RateLimitedHook]
-	rateLimitBuckets collections.Map[collections.Pair[uint64, []byte], types.RateLimitBucket]
+	tokenRateLimits  collections.Map[collections.Pair[uint64, []byte], types.TokenRateLimit]
 
 	schema collections.Schema
 
@@ -40,7 +40,7 @@ func NewKeeper(cdc codec.BinaryCodec, storeService storetypes.KVStoreService, ba
 		aggregationHooks: collections.NewMap(sb, types.AggregationHooksKey, "aggregation_hooks_key", collections.Uint64Key, codec.CollValue[types.AggregationHook](cdc)),
 
 		rateLimitedHooks: collections.NewMap(sb, types.RateLimitedHooksKey, "rate_limited_hooks_key", collections.Uint64Key, codec.CollValue[types.RateLimitedHook](cdc)),
-		rateLimitBuckets: collections.NewMap(sb, types.RateLimitBucketsKey, "rate_limit_buckets_key", collections.PairKeyCodec(collections.Uint64Key, collections.BytesKey), codec.CollValue[types.RateLimitBucket](cdc)),
+		tokenRateLimits:  collections.NewMap(sb, types.TokenRateLimitsKey, "token_rate_limits_key", collections.PairKeyCodec(collections.Uint64Key, collections.BytesKey), codec.CollValue[types.TokenRateLimit](cdc)),
 
 		bankKeeper: bankKeeper,
 	}

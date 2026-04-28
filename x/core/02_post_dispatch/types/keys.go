@@ -14,7 +14,7 @@ var (
 	NoopHooksKey                     = []byte{SubModuleId, 5}
 	AggregationHooksKey              = []byte{SubModuleId, 6}
 	RateLimitedHooksKey              = []byte{SubModuleId, 7}
-	RateLimitBucketsKey              = []byte{SubModuleId, 8}
+	TokenRateLimitsKey               = []byte{SubModuleId, 8}
 )
 
 const (
@@ -44,7 +44,7 @@ const RateLimitDurationSeconds uint64 = 86400
 
 var RateLimitDuration = math.NewInt(int64(RateLimitDurationSeconds))
 
-// RateLimitBucketKey creates and returns a new bucket key.
-func RateLimitBucketKey(hookId, tokenId util.HexAddress) collections.Pair[uint64, []byte] {
+// TokenRateLimitKey creates and returns a new token rate limit key.
+func TokenRateLimitKey(hookId, tokenId util.HexAddress) collections.Pair[uint64, []byte] {
 	return collections.Join(hookId.GetInternalId(), tokenId.Bytes())
 }

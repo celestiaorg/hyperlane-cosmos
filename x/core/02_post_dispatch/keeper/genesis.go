@@ -62,14 +62,14 @@ func InitGenesis(ctx sdk.Context, k Keeper, data *types.GenesisState) {
 		}
 	}
 
-	for _, bucket := range data.RateLimitBuckets {
-		if _, err := k.rateLimitedHooks.Get(ctx, bucket.HookId.GetInternalId()); err != nil {
+	for _, tokenRateLimit := range data.TokenRateLimits {
+		if _, err := k.rateLimitedHooks.Get(ctx, tokenRateLimit.HookId.GetInternalId()); err != nil {
 			panic(err)
 		}
-		if bucket.MaxCapacity.LT(types.RateLimitDuration) {
+		if tokenRateLimit.MaxCapacity.LT(types.RateLimitDuration) {
 			panic(fmt.Sprintf("max capacity must be at least %s", types.RateLimitDuration.String()))
 		}
-		if err := k.rateLimitBuckets.Set(ctx, types.RateLimitBucketKey(bucket.HookId, bucket.TokenId), bucket); err != nil {
+		if err := k.tokenRateLimits.Set(ctx, types.TokenRateLimitKey(tokenRateLimit.HookId, tokenRateLimit.TokenId), tokenRateLimit); err != nil {
 			panic(err)
 		}
 	}
@@ -147,12 +147,12 @@ func ExportGenesis(ctx sdk.Context, k Keeper) *types.GenesisState {
 		panic(err)
 	}
 
-	iterRateLimitBuckets, err := k.rateLimitBuckets.Iterate(ctx, nil)
+	iterTokenRateLimits, err := k.tokenRateLimits.Iterate(ctx, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	rateLimitBuckets, err := iterRateLimitBuckets.Values()
+	tokenRateLimits, err := iterTokenRateLimits.Values()
 	if err != nil {
 		panic(err)
 	}
@@ -164,6 +164,6 @@ func ExportGenesis(ctx sdk.Context, k Keeper) *types.GenesisState {
 		NoopHooks:        noopHooks,
 		AggregationHooks: aggregationHooks,
 		RateLimitedHooks: rateLimitedHooks,
-		RateLimitBuckets: rateLimitBuckets,
+		TokenRateLimits:  tokenRateLimits,
 	}
 }

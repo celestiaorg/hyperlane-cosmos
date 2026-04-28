@@ -83,18 +83,18 @@ service Query {
     option (google.api.http).get = "/hyperlane/v1/rate_limited_hooks/{id}";
   }
 
-  // RateLimitBuckets ...
-  rpc RateLimitBuckets(QueryRateLimitBucketsRequest)
-      returns (QueryRateLimitBucketsResponse) {
+  // TokenRateLimits ...
+  rpc TokenRateLimits(QueryTokenRateLimitsRequest)
+      returns (QueryTokenRateLimitsResponse) {
     option (google.api.http).get =
-        "/hyperlane/v1/rate_limited_hooks/{hook_id}/buckets";
+        "/hyperlane/v1/rate_limited_hooks/{hook_id}/token_rate_limits";
   }
 
-  // RateLimitBucket ...
-  rpc RateLimitBucket(QueryRateLimitBucketRequest)
-      returns (QueryRateLimitBucketResponse) {
-    option (google.api.http).get =
-        "/hyperlane/v1/rate_limited_hooks/{hook_id}/buckets/{token_id}";
+  // TokenRateLimit ...
+  rpc TokenRateLimit(QueryTokenRateLimitRequest)
+      returns (QueryTokenRateLimitResponse) {
+    option (google.api.http).get = "/hyperlane/v1/rate_limited_hooks/{hook_id}/"
+                                   "token_rate_limits/{token_id}";
   }
 }
 
@@ -249,34 +249,34 @@ message QueryRateLimitedHooksResponse {
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-// QueryRateLimitBucketsRequest ...
-message QueryRateLimitBucketsRequest {
+// QueryTokenRateLimitsRequest ...
+message QueryTokenRateLimitsRequest {
   string hook_id = 1;
   cosmos.base.query.v1beta1.PageRequest pagination = 2;
 }
 
-// QueryRateLimitBucketsResponse ...
-message QueryRateLimitBucketsResponse {
-  repeated TokenRateLimit token_rate_limits = 1
+// QueryTokenRateLimitsResponse ...
+message QueryTokenRateLimitsResponse {
+  repeated EffectiveTokenRateLimit effective_token_rate_limits = 1
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-// QueryRateLimitBucketRequest ...
-message QueryRateLimitBucketRequest {
+// QueryTokenRateLimitRequest ...
+message QueryTokenRateLimitRequest {
   string hook_id = 1;
   string token_id = 2;
 }
 
-// QueryRateLimitBucketResponse ...
-message QueryRateLimitBucketResponse {
-  TokenRateLimit token_rate_limit = 1
+// QueryTokenRateLimitResponse ...
+message QueryTokenRateLimitResponse {
+  EffectiveTokenRateLimit effective_token_rate_limit = 1
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
-// TokenRateLimit ...
-message TokenRateLimit {
-  RateLimitBucket bucket = 1
+// EffectiveTokenRateLimit ...
+message EffectiveTokenRateLimit {
+  TokenRateLimit token_rate_limit = 1
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   string current_level = 2 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",

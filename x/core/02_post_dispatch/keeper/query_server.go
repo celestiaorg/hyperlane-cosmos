@@ -282,34 +282,34 @@ func (qs queryServer) RateLimitedHooks(ctx context.Context, req *types.QueryRate
 	}, nil
 }
 
-func (qs queryServer) RateLimitBuckets(ctx context.Context, req *types.QueryRateLimitBucketsRequest) (*types.QueryRateLimitBucketsResponse, error) {
+func (qs queryServer) TokenRateLimits(ctx context.Context, req *types.QueryTokenRateLimitsRequest) (*types.QueryTokenRateLimitsResponse, error) {
 	hookId, err := util.DecodeHexAddress(req.HookId)
 	if err != nil {
 		return nil, err
 	}
 
 	rng := collections.NewPrefixedPairRange[uint64, []byte](hookId.GetInternalId())
-	iter, err := qs.k.rateLimitBuckets.Iterate(ctx, rng)
+	iter, err := qs.k.tokenRateLimits.Iterate(ctx, rng)
 	if err != nil {
 		return nil, err
 	}
 
-	buckets, err := iter.Values()
+	tokenRateLimits, err := iter.Values()
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]types.TokenRateLimit, len(buckets))
-	for i := range buckets {
-		responses[i] = qs.tokenRateLimit(ctx, buckets[i])
+	responses := make([]types.EffectiveTokenRateLimit, len(tokenRateLimits))
+	for i := range tokenRateLimits {
+		responses[i] = qs.effectiveTokenRateLimit(ctx, tokenRateLimits[i])
 	}
 
-	return &types.QueryRateLimitBucketsResponse{
-		TokenRateLimits: responses,
+	return &types.QueryTokenRateLimitsResponse{
+		EffectiveTokenRateLimits: responses,
 	}, nil
 }
 
-func (qs queryServer) RateLimitBucket(ctx context.Context, req *types.QueryRateLimitBucketRequest) (*types.QueryRateLimitBucketResponse, error) {
+func (qs queryServer) TokenRateLimit(ctx context.Context, req *types.QueryTokenRateLimitRequest) (*types.QueryTokenRateLimitResponse, error) {
 	hookId, err := util.DecodeHexAddress(req.HookId)
 	if err != nil {
 		return nil, err
@@ -320,21 +320,21 @@ func (qs queryServer) RateLimitBucket(ctx context.Context, req *types.QueryRateL
 		return nil, err
 	}
 
-	bucket, err := qs.k.rateLimitBuckets.Get(ctx, types.RateLimitBucketKey(hookId, tokenId))
+	tokenRateLimit, err := qs.k.tokenRateLimits.Get(ctx, types.TokenRateLimitKey(hookId, tokenId))
 	if err != nil {
 		return nil, err
 	}
 
-	response := qs.tokenRateLimit(ctx, bucket)
-	return &types.QueryRateLimitBucketResponse{
-		TokenRateLimit: response,
+	response := qs.effectiveTokenRateLimit(ctx, tokenRateLimit)
+	return &types.QueryTokenRateLimitResponse{
+		EffectiveTokenRateLimit: response,
 	}, nil
 }
 
-func (qs queryServer) tokenRateLimit(ctx context.Context, bucket types.RateLimitBucket) types.TokenRateLimit {
-	return types.TokenRateLimit{
-		Bucket:            bucket,
-		CurrentLevel:      qs.k.CurrentRateLimitLevel(ctx, bucket),
-		EffectiveCapacity: rateLimitEffectiveCapacity(bucket),
+func (qs queryServer) effectiveTokenRateLimit(ctx context.Context, tokenRateLimit types.TokenRateLimit) types.EffectiveTokenRateLimit {
+	return types.EffectiveTokenRateLimit{
+		TokenRateLimit:    tokenRateLimit,
+		CurrentLevel:      qs.k.CurrentRateLimitLevel(ctx, tokenRateLimit),
+		EffectiveCapacity: tokenRateLimit.EffectiveCapacity(),
 	}
 }

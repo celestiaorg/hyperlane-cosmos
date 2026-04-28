@@ -33,8 +33,8 @@ func GetQueryCmd() *cobra.Command {
 		CmdAggregationHook(),
 		CmdRateLimitedHooks(),
 		CmdRateLimitedHook(),
-		CmdRateLimitBuckets(),
-		CmdRateLimitBucket(),
+		CmdTokenRateLimits(),
+		CmdTokenRateLimit(),
 	)
 	return cmd
 }
@@ -444,10 +444,10 @@ func CmdRateLimitedHook() *cobra.Command {
 	return cmd
 }
 
-func CmdRateLimitBuckets() *cobra.Command {
+func CmdTokenRateLimits() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rate-limit-buckets [hook-id]",
-		Short: "List token buckets for a rate limited hook",
+		Use:   "token-rate-limits [hook-id]",
+		Short: "List token rate limits for a rate limited hook",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -461,12 +461,12 @@ func CmdRateLimitBuckets() *cobra.Command {
 				return err
 			}
 
-			params := &types.QueryRateLimitBucketsRequest{
+			params := &types.QueryTokenRateLimitsRequest{
 				HookId:     args[0],
 				Pagination: pageReq,
 			}
 
-			res, err := queryClient.RateLimitBuckets(cmd.Context(), params)
+			res, err := queryClient.TokenRateLimits(cmd.Context(), params)
 			if err != nil {
 				return err
 			}
@@ -476,15 +476,15 @@ func CmdRateLimitBuckets() *cobra.Command {
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
-	flags.AddPaginationFlagsToCmd(cmd, "rate-limit-buckets")
+	flags.AddPaginationFlagsToCmd(cmd, "token-rate-limits")
 
 	return cmd
 }
 
-func CmdRateLimitBucket() *cobra.Command {
+func CmdTokenRateLimit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rate-limit-bucket [hook-id] [token-id]",
-		Short: "Get a token bucket for a rate limited hook",
+		Use:   "token-rate-limit [hook-id] [token-id]",
+		Short: "Get a token rate limit for a rate limited hook",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -494,12 +494,12 @@ func CmdRateLimitBucket() *cobra.Command {
 
 			queryClient := types.NewQueryClient(clientCtx)
 
-			params := &types.QueryRateLimitBucketRequest{
+			params := &types.QueryTokenRateLimitRequest{
 				HookId:  args[0],
 				TokenId: args[1],
 			}
 
-			res, err := queryClient.RateLimitBucket(cmd.Context(), params)
+			res, err := queryClient.TokenRateLimit(cmd.Context(), params)
 			if err != nil {
 				return err
 			}

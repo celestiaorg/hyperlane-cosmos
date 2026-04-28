@@ -76,7 +76,7 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring(types.ErrMailboxDoesNotExist.Error()))
 	})
 
-	It("SetRateLimit creates a full bucket and rejects invalid owners/capacities", func() {
+	It("SetRateLimit creates a full token rate limit and rejects invalid owners/capacities", func() {
 		_, err := s.RunTx(&types.MsgSetRateLimit{
 			Owner:       creator.Address,
 			HookId:      rateLimitedHookId,
@@ -86,14 +86,14 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(err).To(BeNil())
 
 		qs := keeper.NewQueryServerImpl(&s.App().HyperlaneKeeper.PostDispatchKeeper)
-		bucket, err := qs.RateLimitBucket(s.Ctx(), &types.QueryRateLimitBucketRequest{
+		tokenRateLimit, err := qs.TokenRateLimit(s.Ctx(), &types.QueryTokenRateLimitRequest{
 			HookId:  rateLimitedHookId.String(),
 			TokenId: tokenId.String(),
 		})
 		Expect(err).To(BeNil())
-		Expect(bucket.TokenRateLimit.Bucket.FilledLevel).To(Equal(math.NewInt(86_400)))
-		Expect(bucket.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(86_400)))
-		Expect(bucket.TokenRateLimit.EffectiveCapacity).To(Equal(math.NewInt(86_400)))
+		Expect(tokenRateLimit.EffectiveTokenRateLimit.TokenRateLimit.FilledLevel).To(Equal(math.NewInt(86_400)))
+		Expect(tokenRateLimit.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(86_400)))
+		Expect(tokenRateLimit.EffectiveTokenRateLimit.EffectiveCapacity).To(Equal(math.NewInt(86_400)))
 
 		_, err = s.RunTx(&types.MsgSetRateLimit{
 			Owner:       i.GenerateTestValidatorAddress("wrong-owner").Address,
@@ -114,7 +114,7 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring(types.ErrRateLimitNotSet.Error()))
 	})
 
-	It("RemoveRateLimit removes a bucket and unconfigured tokens reject", func() {
+	It("RemoveRateLimit removes a token rate limit and unconfigured tokens reject", func() {
 		setRateLimit(s, creator.Address, rateLimitedHookId, tokenId, math.NewInt(86_400))
 
 		_, err := s.RunTx(&types.MsgRemoveRateLimit{
@@ -156,7 +156,7 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(quote).To(Equal(sdk.NewCoins()))
 	})
 
-	It("PostDispatch consumes a configured token bucket", func() {
+	It("PostDispatch consumes a configured token rate limit", func() {
 		setRateLimit(s, creator.Address, rateLimitedHookId, tokenId, math.NewInt(86_400))
 
 		message := dispatchTestMessage(s, s.Ctx(), mailboxId, tokenId, recipient, math.NewInt(100))
@@ -165,12 +165,12 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(charged).To(Equal(sdk.NewCoins()))
 
 		qs := keeper.NewQueryServerImpl(&s.App().HyperlaneKeeper.PostDispatchKeeper)
-		bucket, err := qs.RateLimitBucket(s.Ctx(), &types.QueryRateLimitBucketRequest{
+		tokenRateLimit, err := qs.TokenRateLimit(s.Ctx(), &types.QueryTokenRateLimitRequest{
 			HookId:  rateLimitedHookId.String(),
 			TokenId: tokenId.String(),
 		})
 		Expect(err).To(BeNil())
-		Expect(bucket.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(86_300)))
+		Expect(tokenRateLimit.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(86_300)))
 	})
 
 	It("PostDispatch rejects wrong mailbox, malformed bodies, non-latest messages, and exceeded limits", func() {
@@ -200,7 +200,7 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring(types.ErrRateLimitExceeded.Error()))
 	})
 
-	It("PostDispatch keeps independent buckets per token and refills over time", func() {
+	It("PostDispatch keeps independent token rate limits per token and refills over time", func() {
 		tokenId2 := util.CreateMockHexAddress("warp-token", 2)
 		ctx := s.Ctx().WithBlockTime(time.Unix(1_000, 0))
 
@@ -212,25 +212,25 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		Expect(err).To(BeNil())
 
 		qs := keeper.NewQueryServerImpl(&s.App().HyperlaneKeeper.PostDispatchKeeper)
-		bucket1, err := qs.RateLimitBucket(ctx, &types.QueryRateLimitBucketRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
+		tokenRateLimit1, err := qs.TokenRateLimit(ctx, &types.QueryTokenRateLimitRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
 		Expect(err).To(BeNil())
-		bucket2, err := qs.RateLimitBucket(ctx, &types.QueryRateLimitBucketRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId2.String()})
+		tokenRateLimit2, err := qs.TokenRateLimit(ctx, &types.QueryTokenRateLimitRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId2.String()})
 		Expect(err).To(BeNil())
-		Expect(bucket1.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(863_000)))
-		Expect(bucket2.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(864_000)))
+		Expect(tokenRateLimit1.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(863_000)))
+		Expect(tokenRateLimit2.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(864_000)))
 
 		ctx = ctx.WithBlockTime(time.Unix(1_010, 0))
-		bucket1, err = qs.RateLimitBucket(ctx, &types.QueryRateLimitBucketRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
+		tokenRateLimit1, err = qs.TokenRateLimit(ctx, &types.QueryTokenRateLimitRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
 		Expect(err).To(BeNil())
-		Expect(bucket1.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(863_100)))
+		Expect(tokenRateLimit1.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(863_100)))
 
 		ctx = ctx.WithBlockTime(time.Unix(1_000+int64(types.RateLimitDurationSeconds)+1, 0))
-		bucket1, err = qs.RateLimitBucket(ctx, &types.QueryRateLimitBucketRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
+		tokenRateLimit1, err = qs.TokenRateLimit(ctx, &types.QueryTokenRateLimitRequest{HookId: rateLimitedHookId.String(), TokenId: tokenId.String()})
 		Expect(err).To(BeNil())
-		Expect(bucket1.TokenRateLimit.CurrentLevel).To(Equal(math.NewInt(864_000)))
+		Expect(tokenRateLimit1.EffectiveTokenRateLimit.CurrentLevel).To(Equal(math.NewInt(864_000)))
 	})
 
-	It("Genesis export preserves rate limited hooks and buckets", func() {
+	It("Genesis export preserves rate limited hooks and token rate limits", func() {
 		setRateLimit(s, creator.Address, rateLimitedHookId, tokenId, math.NewInt(86_400))
 		message := dispatchTestMessage(s, s.Ctx(), mailboxId, tokenId, recipient, math.NewInt(1))
 		_, err := s.App().HyperlaneKeeper.PostDispatch(s.Ctx(), mailboxId, rateLimitedHookId, util.StandardHookMetadata{}, message, sdk.NewCoins())
@@ -239,9 +239,9 @@ var _ = Describe("hook_rate_limited_test.go", Ordered, func() {
 		genesis := keeper.ExportGenesis(s.Ctx(), s.App().HyperlaneKeeper.PostDispatchKeeper)
 		Expect(genesis.RateLimitedHooks).To(HaveLen(1))
 		Expect(genesis.RateLimitedHooks[0].Id).To(Equal(rateLimitedHookId))
-		Expect(genesis.RateLimitBuckets).To(HaveLen(1))
-		Expect(genesis.RateLimitBuckets[0].HookId).To(Equal(rateLimitedHookId))
-		Expect(genesis.RateLimitBuckets[0].TokenId).To(Equal(tokenId))
+		Expect(genesis.TokenRateLimits).To(HaveLen(1))
+		Expect(genesis.TokenRateLimits[0].HookId).To(Equal(rateLimitedHookId))
+		Expect(genesis.TokenRateLimits[0].TokenId).To(Equal(tokenId))
 	})
 })
 

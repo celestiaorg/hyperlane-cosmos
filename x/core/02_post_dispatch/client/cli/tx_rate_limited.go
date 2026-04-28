@@ -66,7 +66,7 @@ func CmdCreateRateLimitedHook() *cobra.Command {
 func CmdSetRateLimit() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set [hook-id] [token-id] [max-capacity]",
-		Short: "Set a token bucket limit on a rate limited hook",
+		Short: "Set a token rate limit on a rate limited hook",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -113,7 +113,7 @@ func CmdSetRateLimit() *cobra.Command {
 func CmdRemoveRateLimit() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove [hook-id] [token-id]",
-		Short: "Remove a token bucket limit from a rate limited hook",
+		Short: "Remove a token rate limit from a rate limited hook",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clientCtx, err := client.GetClientTxContext(cmd)

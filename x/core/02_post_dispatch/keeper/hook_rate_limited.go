@@ -40,7 +40,7 @@ func (r RateLimitedHookHandler) QuoteDispatch(_ context.Context, _, _ util.HexAd
 
 // PostDispatch validates and consumes rate-limit capacity for a Warp token message.
 // It rejects messages from the wrong mailbox, non-latest messages, unconfigured token IDs,
-// malformed token message bodies, and transfers above the token's current bucket level.
+// malformed token message bodies, and transfers above the token's current rate-limit level.
 func (r RateLimitedHookHandler) PostDispatch(ctx context.Context, mailboxId, hookId util.HexAddress, _ util.StandardHookMetadata, message util.HyperlaneMessage, _ sdk.Coins) (sdk.Coins, error) {
 	hook, err := r.k.rateLimitedHooks.Get(ctx, hookId.GetInternalId())
 	if err != nil {
@@ -60,8 +60,8 @@ func (r RateLimitedHookHandler) PostDispatch(ctx context.Context, mailboxId, hoo
 		return sdk.NewCoins(), errors.Wrapf(types.ErrInvalidDispatchedMessage, "message %s is not latest dispatched message", messageId.String())
 	}
 
-	key := types.RateLimitBucketKey(hookId, message.Sender)
-	bucket, err := r.k.rateLimitBuckets.Get(ctx, key)
+	key := types.TokenRateLimitKey(hookId, message.Sender)
+	tokenRateLimit, err := r.k.tokenRateLimits.Get(ctx, key)
 	if err != nil {
 		return sdk.NewCoins(), errors.Wrapf(types.ErrRateLimitNotConfigured, "hook: %s token: %s", hookId.String(), message.Sender.String())
 	}
@@ -71,16 +71,16 @@ func (r RateLimitedHookHandler) PostDispatch(ctx context.Context, mailboxId, hoo
 		return sdk.NewCoins(), err
 	}
 
-	currentLevel := r.k.CurrentRateLimitLevel(ctx, bucket)
+	currentLevel := r.k.CurrentRateLimitLevel(ctx, tokenRateLimit)
 	if currentLevel.LT(amount) {
 		return sdk.NewCoins(), errors.Wrapf(types.ErrRateLimitExceeded, "amount %s exceeds current level %s", amount.String(), currentLevel.String())
 	}
 
 	now := currentBlockUnix(ctx)
-	bucket.FilledLevel = currentLevel.Sub(amount)
-	bucket.LastUpdated = now
+	tokenRateLimit.FilledLevel = currentLevel.Sub(amount)
+	tokenRateLimit.LastUpdated = now
 
-	if err := r.k.rateLimitBuckets.Set(ctx, key, bucket); err != nil {
+	if err := r.k.tokenRateLimits.Set(ctx, key, tokenRateLimit); err != nil {
 		return sdk.NewCoins(), err
 	}
 
@@ -89,33 +89,33 @@ func (r RateLimitedHookHandler) PostDispatch(ctx context.Context, mailboxId, hoo
 		TokenId:           message.Sender,
 		MessageId:         messageId,
 		Amount:            amount,
-		FilledLevel:       bucket.FilledLevel,
-		LastUpdated:       bucket.LastUpdated,
+		FilledLevel:       tokenRateLimit.FilledLevel,
+		LastUpdated:       tokenRateLimit.LastUpdated,
 	})
 
 	return sdk.NewCoins(), nil
 }
 
-// CurrentRateLimitLevel returns the lazily refilled bucket level at the current block time.
-// The value is capped at the bucket's effective capacity, which is derived from the
+// CurrentRateLimitLevel returns the lazily refilled token rate limit level at the current block time.
+// The value is capped at the rate limit's effective capacity, which is derived from the
 // integer per-second refill rate over the fixed one-day refill duration.
-func (k Keeper) CurrentRateLimitLevel(ctx context.Context, bucket types.RateLimitBucket) math.Int {
-	effectiveCapacity := rateLimitEffectiveCapacity(bucket)
+func (k Keeper) CurrentRateLimitLevel(ctx context.Context, tokenRateLimit types.TokenRateLimit) math.Int {
+	effectiveCapacity := tokenRateLimit.EffectiveCapacity()
 	if !effectiveCapacity.IsPositive() {
 		return math.ZeroInt()
 	}
 
 	now := currentBlockUnix(ctx)
-	if now > bucket.LastUpdated+types.RateLimitDurationSeconds {
+	if now > tokenRateLimit.LastUpdated+types.RateLimitDurationSeconds {
 		return effectiveCapacity
 	}
 
 	elapsed := uint64(0)
-	if now > bucket.LastUpdated {
-		elapsed = now - bucket.LastUpdated
+	if now > tokenRateLimit.LastUpdated {
+		elapsed = now - tokenRateLimit.LastUpdated
 	}
 
-	currentLevel := bucket.FilledLevel.Add(bucket.RefillRate.Mul(math.NewInt(int64(elapsed))))
+	currentLevel := tokenRateLimit.FilledLevel.Add(tokenRateLimit.RefillRate.Mul(math.NewInt(int64(elapsed))))
 	if currentLevel.GT(effectiveCapacity) {
 		return effectiveCapacity
 	}
@@ -130,12 +130,6 @@ func currentBlockUnix(ctx context.Context) uint64 {
 		return 0
 	}
 	return uint64(now)
-}
-
-// rateLimitEffectiveCapacity returns the maximum level a bucket can refill to.
-// This can be lower than MaxCapacity because RefillRate is rounded down when configured.
-func rateLimitEffectiveCapacity(bucket types.RateLimitBucket) math.Int {
-	return bucket.RefillRate.Mul(types.RateLimitDuration)
 }
 
 // tokenMessageAmount decodes the Hyperlane TokenMessage amount from bytes 32:64.

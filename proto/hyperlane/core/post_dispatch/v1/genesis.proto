@@ -18,7 +18,7 @@ message GenesisState {
       [ (gogoproto.nullable) = false ];
   repeated RateLimitedHook rate_limited_hooks = 6
       [ (gogoproto.nullable) = false ];
-  repeated RateLimitBucket rate_limit_buckets = 7
+  repeated TokenRateLimit token_rate_limits = 7
       [ (gogoproto.nullable) = false ];
 }
 
