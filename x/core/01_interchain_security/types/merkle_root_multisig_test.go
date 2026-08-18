@@ -19,7 +19,7 @@ TEST CASES - merkle_root_multisig.go
 * Validate (invalid) invalid validator ethereum address
 * Validate (invalid) unsorted validators
 * Validate (invalid) duplicated validators
-* Rejects duplicate validators with different casing
+* Validate (invalid) duplicate validators with different casing are rejected
 * Validate (invalid) too high threshold
 * Validate (invalid) zero threshold
 * Verify (invalid) empty metadata
@@ -29,7 +29,7 @@ TEST CASES - merkle_root_multisig.go
 * Verify (invalid) invalid signature
 * Verify (invalid) wrong signature
 * Verify (invalid) duplicated signature
-* Rejects duplicate validators during verification, regardless of casing
+* Verify (invalid) duplicate validators with different casing are rejected
 * Verify (valid) multi-sig signature
 * Verify (valid) relayer metadata
 
@@ -118,7 +118,7 @@ var _ = Describe("merkle_root_multisig.go", Ordered, func() {
 		Expect(messageIdMultisigIsm.Validate().Error()).To(Equal(fmt.Sprintf("duplicate validator address: %s", PrivateKeys[0].address)))
 	})
 
-	It("rejects duplicate validators with different casing", func() {
+	It("Validate (invalid) duplicate validators with different casing are rejected", func() {
 		// Arrange
 		validators := []string{
 			PrivateKeys[0].address,
@@ -455,7 +455,7 @@ var _ = Describe("merkle_root_multisig.go", Ordered, func() {
 		Expect(verify).To(BeFalse())
 	})
 
-	It("rejects duplicate validators during verification, regardless of casing", func() {
+	It("Verify (invalid) duplicate validators with different casing are rejected", func() {
 		// Arrange
 		// Both entries are the same 20-byte address, only the hex casing differs.
 		merkleRootMultisigIsm := types.MerkleRootMultisigISM{

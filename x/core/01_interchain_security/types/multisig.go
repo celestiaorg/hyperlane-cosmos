@@ -15,35 +15,6 @@ type MultisigISM interface {
 	GetThreshold() uint32
 }
 
-// decodeValidators decodes validators and rejects invalid or duplicate addresses.
-func decodeValidators(validators []string) ([]common.Address, error) {
-	decoded := make([]common.Address, 0, len(validators))
-	seen := make(map[common.Address]struct{}, len(validators))
-
-	for _, validator := range validators {
-		raw, err := util.DecodeEthHex(validator)
-		if err != nil {
-			return nil, fmt.Errorf("invalid validator address: %s", validator)
-		}
-
-		// Ensure that the address is an eth address with 20 bytes.
-		if len(raw) != common.AddressLength {
-			return nil, fmt.Errorf("invalid validator address: must be %d bytes", common.AddressLength)
-		}
-
-		address := common.Address(raw)
-
-		if _, duplicate := seen[address]; duplicate {
-			return nil, fmt.Errorf("duplicate validator address: %s", validator)
-		}
-		seen[address] = struct{}{}
-
-		decoded = append(decoded, address)
-	}
-
-	return decoded, nil
-}
-
 // VerifyMultisig reports whether enough validators signed the message digest.
 func VerifyMultisig(validators []string, threshold uint32, signatures [][]byte, digest [32]byte) (bool, error) {
 	// Check if the number of provided signatures meets the threshold requirement
@@ -108,4 +79,35 @@ func ValidateNewMultisig(m MultisigISM) error {
 	}
 
 	return nil
+}
+
+// decodeValidators rejects malformed and duplicate addresses. Duplicates are
+// detected on the decoded bytes rather than the hex string, so case variants of
+// one address cannot occupy multiple validator slots.
+func decodeValidators(validators []string) ([]common.Address, error) {
+	decoded := make([]common.Address, 0, len(validators))
+	seen := make(map[common.Address]struct{}, len(validators))
+
+	for _, validator := range validators {
+		raw, err := util.DecodeEthHex(validator)
+		if err != nil {
+			return nil, fmt.Errorf("invalid validator address: %s", validator)
+		}
+
+		// Ensure that the address is an eth address with 20 bytes.
+		if len(raw) != common.AddressLength {
+			return nil, fmt.Errorf("invalid validator address: must be %d bytes", common.AddressLength)
+		}
+
+		address := common.Address(raw)
+
+		if _, duplicate := seen[address]; duplicate {
+			return nil, fmt.Errorf("duplicate validator address: %s", validator)
+		}
+		seen[address] = struct{}{}
+
+		decoded = append(decoded, address)
+	}
+
+	return decoded, nil
 }
