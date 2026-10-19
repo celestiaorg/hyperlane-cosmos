@@ -1,0 +1,20 @@
+version: 2
+
+# Security updates only: open-pull-requests-limit 0 disables version updates
+# while still applying these commit-message prefixes to security PR titles.
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    commit-message:
+      prefix: "chore(deps): [high] "
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: gomod
+    directory: "/scripts/hypertools"
+    commit-message:
+      prefix: "chore(deps): [medium] "
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
