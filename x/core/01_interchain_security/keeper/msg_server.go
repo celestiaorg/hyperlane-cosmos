@@ -48,6 +48,10 @@ func (k *Keeper) CreateRoutingIsm(ctx context.Context, req *types.MsgCreateRouti
 			return util.HexAddress{}, errors.Wrapf(types.ErrUnkownIsmId, "ISM %s not found", route.Ism.String())
 		}
 
+		if err = validateRouteIsmType(route.Ism); err != nil {
+			return util.HexAddress{}, err
+		}
+
 		routes = append(routes, route)
 	}
 
@@ -186,6 +190,10 @@ func (k *Keeper) SetRoutingIsmDomain(ctx context.Context, req *types.MsgSetRouti
 		return errors.Wrapf(types.ErrUnkownIsmId, "ISM %s not found", req.Route.Ism.String())
 	}
 
+	if err = validateRouteIsmType(req.Route.Ism); err != nil {
+		return err
+	}
+
 	// we don't check if the domain was overwritten
 	routingISM.SetDomain(req.Route)
 
@@ -212,6 +220,55 @@ func (m msgServer) SetRoutingIsmDomain(ctx context.Context, req *types.MsgSetRou
 	}
 
 	return &types.MsgSetRoutingIsmDomainResponse{}, nil
+}
+
+func (k *Keeper) CreateAggregationIsm(ctx context.Context, req *types.MsgCreateAggregationIsm) (util.HexAddress, error) {
+	ismId, err := k.coreKeeper.IsmRouter().GetNextSequence(ctx, types.INTERCHAIN_SECURITY_MODULE_TYPE_AGGREGATION)
+	if err != nil {
+		return util.HexAddress{}, errors.Wrap(types.ErrUnexpectedError, err.Error())
+	}
+
+	newIsm := types.AggregationISM{
+		Id:        ismId,
+		Owner:     req.Creator,
+		Modules:   req.Modules,
+		Threshold: req.Threshold,
+	}
+
+	if err = newIsm.Validate(); err != nil {
+		return util.HexAddress{}, errors.Wrap(types.ErrInvalidAggregationConfig, err.Error())
+	}
+
+	for _, module := range newIsm.Modules {
+		exists, err := k.coreKeeper.IsmExists(ctx, module)
+		if err != nil || !exists {
+			return util.HexAddress{}, errors.Wrapf(types.ErrUnkownIsmId, "ISM %s not found", module.String())
+		}
+	}
+
+	if err = k.isms.Set(ctx, ismId.GetInternalId(), &newIsm); err != nil {
+		return util.HexAddress{}, errors.Wrap(types.ErrUnexpectedError, err.Error())
+	}
+
+	_ = sdk.UnwrapSDKContext(ctx).EventManager().EmitTypedEvent(&types.EventCreateAggregationIsm{
+		IsmId:     newIsm.Id,
+		Owner:     newIsm.Owner,
+		Modules:   newIsm.Modules,
+		Threshold: newIsm.Threshold,
+	})
+
+	return ismId, nil
+}
+
+// CreateAggregationIsm creates a new immutable Aggregation ISM after validating
+// the threshold and that all modules reference existing ISMs.
+func (m msgServer) CreateAggregationIsm(ctx context.Context, req *types.MsgCreateAggregationIsm) (*types.MsgCreateAggregationIsmResponse, error) {
+	ismId, err := m.k.CreateAggregationIsm(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgCreateAggregationIsmResponse{Id: ismId}, nil
 }
 
 // AnnounceValidator lets a validator store a string in the state, which is queryable.
@@ -445,4 +502,13 @@ func (k *Keeper) getRoutingIsm(ctx context.Context, ismId util.HexAddress, owner
 	}
 
 	return routingISM, nil
+}
+
+// validateRouteIsmType rejects routes to another routing ISM. Nesting routing ISMs
+// directly is not allowed to bound the call depth of Verify.
+func validateRouteIsmType(ismId util.HexAddress) error {
+	if ismId.GetType() == uint32(types.INTERCHAIN_SECURITY_MODULE_TYPE_ROUTING) {
+		return errors.Wrapf(types.ErrInvalidISMType, "ISM %s is a routing ISM, nested routing ISMs are not allowed", ismId.String())
+	}
+	return nil
 }
