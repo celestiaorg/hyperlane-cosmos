@@ -194,3 +194,15 @@ Enroll remote router
 ```shell
 ./hypd tx hyperlane-transfer enroll-remote-router [token-id] [destination-domain] [recipient-contract] [gas-required-on-destination-chain] $HYPD_FLAGS
 ```
+
+## Contributing
+
+This is Celestia's fork. See [CONTRIBUTING.md](./CONTRIBUTING.md) for general guidelines.
+
+PR titles follow [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) and must start the subject with `[high]`, `[medium]`, or `[low]` to indicate the review thoroughness needed. For example: `fix(ism): [high] reject duplicate validators` or `docs: [low] clarify setup`. Include the same tag in the PR description and explain why you chose it.
+
+- `[high]`: Deep review for consensus, state transitions, security, or other changes with significant risk (e.g. ISM/validator verification, mailbox, warp token transfers, state-machine-breaking changes).
+- `[medium]`: Standard review for code changes with limited impact and well-understood behavior.
+- `[low]`: Focused review for straightforward docs, tests, or tooling changes with low risk.
+
+Choose the higher level when unsure. A small diff can still need deep review. CI checks the title format; reviewers should confirm the chosen level.
