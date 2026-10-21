@@ -86,6 +86,10 @@ func (qs queryServer) Mailbox(ctx context.Context, req *types.QueryMailboxReques
 	}, nil
 }
 
+// MaxVerifyDryRunGasLimit bounds the gas, and therefore the work, of a single
+// VerifyDryRun query.
+const MaxVerifyDryRunGasLimit = 10_000_000
+
 func (qs queryServer) VerifyDryRun(ctx context.Context, req *types.QueryVerifyDryRunRequest) (*types.QueryVerifyDryRunResponse, error) {
 	limit := uint64(200000)
 	if req.GasLimit != "" {
@@ -94,6 +98,9 @@ func (qs queryServer) VerifyDryRun(ctx context.Context, req *types.QueryVerifyDr
 			return nil, err
 		}
 
+		if parsed > MaxVerifyDryRunGasLimit {
+			return nil, fmt.Errorf("gas limit %d exceeds maximum %d", parsed, MaxVerifyDryRunGasLimit)
+		}
 		limit = parsed
 	}
 
