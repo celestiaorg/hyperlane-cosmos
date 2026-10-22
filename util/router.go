@@ -19,6 +19,13 @@ type InterchainSecurityModule interface {
 	Verify(ctx context.Context, ismId HexAddress, metadata []byte, message HyperlaneMessage) (bool, error)
 }
 
+// RoutingInterchainSecurityModule is implemented by ISMs that delegate the whole
+// verification of a message to exactly one other ISM.
+type RoutingInterchainSecurityModule interface {
+	// Route returns the ISM that verifies message in place of ismId.
+	Route(ctx context.Context, ismId HexAddress, message HyperlaneMessage) (HexAddress, error)
+}
+
 type PostDispatchModule interface {
 	Exists(ctx context.Context, hookId HexAddress) (bool, error)
 	// PostDispatch returns the charged coins.
