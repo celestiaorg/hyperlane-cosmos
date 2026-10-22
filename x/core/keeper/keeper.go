@@ -174,12 +174,12 @@ func verifyRoutingCycle(meter gastypes.GasMeter, ismId util.HexAddress, cycle []
 		}
 	}
 
-	// Less than one lap of gas is left, so this panics with out of gas.
-	for {
-		for _, c := range cycle {
-			meter.ConsumeGas(c.amount, c.descriptor)
-		}
+	// Less than one lap of gas is left, so one more lap panics with out of gas.
+	for _, c := range cycle {
+		meter.ConsumeGas(c.amount, c.descriptor)
 	}
+	// Unreachable with the SDK gas meter; a meter that does not panic still reports the cycle.
+	return false, errors.Wrapf(types.ErrIsmRoutingCycle, "ISM %s is part of a routing cycle", ismId.String())
 }
 
 func (k Keeper) IsmExists(ctx context.Context, ismId util.HexAddress) (bool, error) {
