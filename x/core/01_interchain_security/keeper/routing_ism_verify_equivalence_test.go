@@ -113,13 +113,11 @@ var _ = Describe("routing_ism_verify_equivalence_test.go", Ordered, func() {
 		return resp.Id
 	}
 
+	// setRoute writes the route directly: MsgSetRoutingIsmDomain now rejects routes to
+	// routing ISMs, but chains keep the nested routes and cycles stored before that.
 	setRoute := func(routingIsm, ism util.HexAddress, domain uint32) {
-		_, err := s.RunTx(&types.MsgSetRoutingIsmDomain{
-			Owner: creator.Address,
-			IsmId: routingIsm,
-			Route: types.Route{Ism: ism, Domain: domain},
-		})
-		Expect(err).To(BeNil())
+		ismKeeper := s.App().HyperlaneKeeper.IsmKeeper
+		Expect(ismKeeper.SetStoredRoute(s.Ctx(), routingIsm, types.Route{Ism: ism, Domain: domain})).To(Succeed())
 	}
 
 	buildScenarios := func() []scenario {
