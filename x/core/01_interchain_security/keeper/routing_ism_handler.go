@@ -18,26 +18,37 @@ type RoutingISMHandler struct {
 // Verify implements HyperlaneInterchainSecurityModule
 // Delegates the verify call to the configured ISM in the RoutingISM based on the origin of the message.
 func (m *RoutingISMHandler) Verify(ctx context.Context, ismId util.HexAddress, metadata []byte, message util.HyperlaneMessage) (bool, error) {
-	ism, err := m.keeper.isms.Get(ctx, ismId.GetInternalId())
+	routedIsm, err := m.Route(ctx, ismId, message)
 	if err != nil {
 		return false, err
+	}
+
+	// call the top level Verify method on the core module
+	// this method will then follow any further routing ISMs in a loop
+	return m.keeper.coreKeeper.Verify(ctx, routedIsm, metadata, message)
+}
+
+// Route implements util.RoutingInterchainSecurityModule
+// Returns the ISM registered in the RoutingISM for the origin of the message.
+func (m *RoutingISMHandler) Route(ctx context.Context, ismId util.HexAddress, message util.HyperlaneMessage) (util.HexAddress, error) {
+	ism, err := m.keeper.isms.Get(ctx, ismId.GetInternalId())
+	if err != nil {
+		return util.HexAddress{}, err
 	}
 
 	// check if the ism is a routing ism
 	routingIsm, ok := ism.(*types.RoutingISM)
 	if !ok {
-		return false, errors.Wrapf(types.ErrInvalidISMType, "ISM %s is not a routing ISM", ismId.String())
+		return util.HexAddress{}, errors.Wrapf(types.ErrInvalidISMType, "ISM %s is not a routing ISM", ismId.String())
 	}
 
 	// get the ism for the registered route
 	routedIsm, exists := routingIsm.GetIsm(message.Origin)
 	if !exists || routedIsm == nil {
-		return false, errors.Wrapf(types.ErrNoRouteFound, "no route found for domain %d", message.Origin)
+		return util.HexAddress{}, errors.Wrapf(types.ErrNoRouteFound, "no route found for domain %d", message.Origin)
 	}
 
-	// call the top level Verify method on the core module
-	// this method will then recursively invoke the Verify method on all the sub ISMs
-	return m.keeper.coreKeeper.Verify(ctx, *routedIsm, metadata, message)
+	return *routedIsm, nil
 }
 
 func (m *RoutingISMHandler) Exists(ctx context.Context, ismId util.HexAddress) (bool, error) {

@@ -3,10 +3,13 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/core/store"
+	"cosmossdk.io/errors"
+	gastypes "cosmossdk.io/store/types"
 
 	"github.com/bcp-innovations/hyperlane-cosmos/util"
 	ismkeeper "github.com/bcp-innovations/hyperlane-cosmos/x/core/01_interchain_security/keeper"
@@ -111,16 +114,72 @@ func (k Keeper) IsmRouter() *util.Router[util.InterchainSecurityModule] {
 	return k.ismRouter
 }
 
+// Verify verifies message with the ISM ismId.
+//
+// Routing ISMs delegate verification to exactly one other ISM. Verify follows
+// them in a loop. Every hop charges the same gas, in the same order, as the
+// recursive implementation in v1.3.0, so the result, error and gas consumed
+// are identical.
 func (k Keeper) Verify(ctx context.Context, ismId util.HexAddress, metadata []byte, message util.HyperlaneMessage) (bool, error) {
-	// Consume a fixed amount of gas to prevent DoS attacks and limit recursive calls.
-	// This ensures a maximum number of approximately 2100 recursive verify calls.
-	sdk.UnwrapSDKContext(ctx).GasMeter().ConsumeGas(10000, "ism verification")
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	recorder := &gasRecorder{GasMeter: sdkCtx.GasMeter()}
+	routeCtx := sdkCtx.WithGasMeter(recorder)
 
-	handler, err := k.ismRouter.GetModule(ismId)
-	if err != nil {
-		return false, err
+	// visited maps each ISM on the walk to the index in recorder.charges where its hop starts.
+	visited := make(map[util.HexAddress]int)
+	for {
+		if start, ok := visited[ismId]; ok && !recorder.refunded {
+			return verifyRoutingCycle(sdkCtx.GasMeter(), ismId, recorder.charges[start:])
+		}
+		visited[ismId] = len(recorder.charges)
+
+		// Consume a fixed amount of gas to prevent DoS attacks and limit routing hops.
+		recorder.ConsumeGas(10000, "ism verification")
+
+		handler, err := k.ismRouter.GetModule(ismId)
+		if err != nil {
+			return false, err
+		}
+		routing, ok := (*handler).(util.RoutingInterchainSecurityModule)
+		if !ok {
+			return (*handler).Verify(ctx, ismId, metadata, message)
+		}
+		ismId, err = routing.Route(routeCtx, ismId, message)
+		if err != nil {
+			return false, err
+		}
 	}
-	return (*handler).Verify(ctx, ismId, metadata, message)
+}
+
+// verifyRoutingCycle handles a walk that reached ismId a second time. Routing
+// is a pure function of the stored ISMs and the message, so the walk would
+// repeat cycle forever and the recursive implementation ran out of gas. This
+// charges whole laps of the cycle at once and then replays it charge by charge,
+// so the meter panics with exactly the gas consumed of the recursive
+// implementation.
+func verifyRoutingCycle(meter gastypes.GasMeter, ismId util.HexAddress, cycle []gasCharge) (bool, error) {
+	limit := meter.Limit()
+	if limit == math.MaxUint64 {
+		// Without a gas limit the walk would never end.
+		return false, errors.Wrapf(types.ErrIsmRoutingCycle, "ISM %s is part of a routing cycle", ismId.String())
+	}
+
+	var lap uint64
+	for _, c := range cycle {
+		lap += c.amount
+	}
+	if consumed := meter.GasConsumed(); consumed < limit {
+		if laps := (limit - consumed) / lap; laps > 0 {
+			meter.ConsumeGas(laps*lap, "ism verification")
+		}
+	}
+
+	// Less than one lap of gas is left, so this panics with out of gas.
+	for {
+		for _, c := range cycle {
+			meter.ConsumeGas(c.amount, c.descriptor)
+		}
+	}
 }
 
 func (k Keeper) IsmExists(ctx context.Context, ismId util.HexAddress) (bool, error) {
