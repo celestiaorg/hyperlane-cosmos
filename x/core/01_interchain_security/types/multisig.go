@@ -10,6 +10,11 @@ import (
 	"github.com/bcp-innovations/hyperlane-cosmos/util"
 )
 
+// MaxMultisigValidators bounds a multisig ISM's validator set. Verification
+// decodes the whole set regardless of threshold, so its cost must not grow with
+// an unbounded list.
+const MaxMultisigValidators = 100
+
 type MultisigISM interface {
 	GetValidators() []string
 	GetThreshold() uint32
@@ -17,6 +22,12 @@ type MultisigISM interface {
 
 // VerifyMultisig reports whether enough validators signed the message digest.
 func VerifyMultisig(validators []string, threshold uint32, signatures [][]byte, digest [32]byte) (bool, error) {
+	// Checked here as well as on creation so that ISMs stored before the cap
+	// existed are rejected before their validator set is decoded.
+	if err := validateValidatorCount(validators); err != nil {
+		return false, err
+	}
+
 	// Check if the number of provided signatures meets the threshold requirement
 	if len(signatures) < int(threshold) {
 		return false, fmt.Errorf("threshold can not be reached")
@@ -67,6 +78,9 @@ func ValidateNewMultisig(m MultisigISM) error {
 	if len(validators) < int(m.GetThreshold()) {
 		return fmt.Errorf("validator addresses less than threshold")
 	}
+	if err := validateValidatorCount(validators); err != nil {
+		return err
+	}
 
 	validatorAddresses, err := decodeValidators(validators)
 	if err != nil {
@@ -78,6 +92,13 @@ func ValidateNewMultisig(m MultisigISM) error {
 		return fmt.Errorf("validator addresses are not sorted correctly in ascending order")
 	}
 
+	return nil
+}
+
+func validateValidatorCount(validators []string) error {
+	if len(validators) > MaxMultisigValidators {
+		return fmt.Errorf("validator count %d exceeds maximum of %d", len(validators), MaxMultisigValidators)
+	}
 	return nil
 }
 

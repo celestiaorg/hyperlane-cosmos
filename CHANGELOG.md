@@ -22,6 +22,7 @@ An '!' indicates a state machine breaking change.
 
 ### Bug Fixes
 
+- ! Cap multisig ISM validator sets at 100, on creation and on verification of existing ISMs.
 - [celestiaorg#8](https://github.com/celestiaorg/hyperlane-cosmos/pull/8) Verify routing ISMs iteratively (forward-port of v1.3.1).
 
 ## [v1.3.0](https://github.com/celestiaorg/hyperlane-cosmos/releases/tag/v1.3.0) - 2026-08-18
