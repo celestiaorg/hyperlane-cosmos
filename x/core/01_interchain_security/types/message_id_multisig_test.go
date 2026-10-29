@@ -22,6 +22,8 @@ TEST CASES - message_id_multisig.go
 * Validate (invalid) duplicate validators with different casing are rejected
 * Validate (invalid) too high threshold
 * Validate (invalid) zero threshold
+* Validate (invalid) too many validators
+* Validate (valid) validators at maximum
 * Verify (invalid) empty metadata
 + Verify (invalid) invalid metadata - signatures length
 * Verify (invalid) threshold can't be reached
@@ -29,6 +31,7 @@ TEST CASES - message_id_multisig.go
 * Verify (invalid) wrong signature
 * Verify (invalid) duplicated signature
 * Verify (invalid) duplicate validators with different casing are rejected
+* Verify (invalid) stored validator set exceeds maximum
 * Verify (valid) multi-sig signature
 
 */
@@ -167,6 +170,46 @@ var _ = Describe("message_id_multisig.go", Ordered, func() {
 		}
 		// Assert
 		Expect(messageIdMultisigIsm.Validate().Error()).To(Equal("threshold must be greater than zero"))
+	})
+
+	It("Validate (invalid) too many validators", func() {
+		// Arrange
+		messageIdMultisigIsm := types.MessageIdMultisigISM{
+			Validators: sortedValidators(types.MaxMultisigValidators + 1),
+			Threshold:  1,
+		}
+
+		// Act & Assert
+		Expect(messageIdMultisigIsm.Validate()).To(MatchError(fmt.Sprintf("validator count %d exceeds maximum of %d", types.MaxMultisigValidators+1, types.MaxMultisigValidators)))
+	})
+
+	It("Validate (valid) validators at maximum", func() {
+		// Arrange
+		messageIdMultisigIsm := types.MessageIdMultisigISM{
+			Validators: sortedValidators(types.MaxMultisigValidators),
+			Threshold:  1,
+		}
+
+		// Act & Assert
+		Expect(messageIdMultisigIsm.Validate()).To(Succeed())
+	})
+
+	It("Verify (invalid) stored validator set exceeds maximum", func() {
+		// Arrange: an ISM stored before the cap existed bypassed Validate.
+		messageIdMultisigIsm := types.MessageIdMultisigISM{
+			Validators: sortedValidators(types.MaxMultisigValidators + 1),
+			Threshold:  1,
+		}
+		metadata := types.MessageIdMultisigMetadata{}
+		digest := metadata.Digest(&util.HyperlaneMessage{})
+		metadata.Signatures = [][]byte{signDigest(digest[:], PrivateKeys[0].privateKey)}
+
+		// Act
+		verify, err := messageIdMultisigIsm.Verify(s.Ctx(), metadata.Bytes(), util.HyperlaneMessage{})
+
+		// Assert
+		Expect(err).To(MatchError(fmt.Sprintf("validator count %d exceeds maximum of %d", types.MaxMultisigValidators+1, types.MaxMultisigValidators)))
+		Expect(verify).To(BeFalse())
 	})
 
 	It("Verify (invalid) empty metadata", func() {
@@ -472,3 +515,12 @@ var _ = Describe("message_id_multisig.go", Ordered, func() {
 		Expect(verify).To(BeTrue())
 	})
 })
+
+// sortedValidators returns n distinct validator addresses in ascending order.
+func sortedValidators(n int) []string {
+	validators := make([]string, n)
+	for i := range validators {
+		validators[i] = fmt.Sprintf("0x%040x", i+1)
+	}
+	return validators
+}

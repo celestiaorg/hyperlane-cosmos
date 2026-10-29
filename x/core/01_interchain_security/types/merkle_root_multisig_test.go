@@ -22,6 +22,7 @@ TEST CASES - merkle_root_multisig.go
 * Validate (invalid) duplicate validators with different casing are rejected
 * Validate (invalid) too high threshold
 * Validate (invalid) zero threshold
+* Validate (invalid) too many validators
 * Verify (invalid) empty metadata
 + Verify (invalid) invalid metadata - signatures length
 * Verify (invalid) invalid metadata - signed index
@@ -169,6 +170,17 @@ var _ = Describe("merkle_root_multisig.go", Ordered, func() {
 		}
 		// Assert
 		Expect(merkleRootMultisigIsm.Validate().Error()).To(Equal("threshold must be greater than zero"))
+	})
+
+	It("Validate (invalid) too many validators", func() {
+		// Arrange
+		merkleRootMultisigIsm := types.MerkleRootMultisigISM{
+			Validators: sortedValidators(types.MaxMultisigValidators + 1),
+			Threshold:  1,
+		}
+
+		// Act & Assert
+		Expect(merkleRootMultisigIsm.Validate()).To(MatchError(fmt.Sprintf("validator count %d exceeds maximum of %d", types.MaxMultisigValidators+1, types.MaxMultisigValidators)))
 	})
 
 	It("Verify (invalid) empty metadata", func() {
