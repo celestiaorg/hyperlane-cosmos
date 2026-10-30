@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
@@ -33,6 +34,16 @@ func RecoverEthSignature(hash []byte, sig []byte) (*ecdsa.PublicKey, error) {
 	if len(sig) != 65 {
 		return nil, errors.New("invalid signature")
 	}
+
+	// Only accept a recovery id of 27 or 28. go-ethereum recovers differently
+	// with and without cgo for other values (e.g. 31 and 32 are only rejected
+	// with cgo), which would make verification non-deterministic across builds.
+	if sig[64] != 27 && sig[64] != 28 {
+		return nil, errors.New("invalid signature recovery id")
+	}
+
+	// Copy so the caller's signature is not modified.
+	sig = bytes.Clone(sig)
 
 	// Sub 27 of the recovery id according to this - https://eips.ethereum.org/EIPS/eip-155
 	sig[64] -= 27
