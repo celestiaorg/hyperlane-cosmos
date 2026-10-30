@@ -22,6 +22,7 @@ An '!' indicates a state machine breaking change.
 
 ### Bug Fixes
 
+- Fix core genesis validation panicking on messages or a missing post dispatch genesis, and checking the mailbox message count against received messages only.
 - ! Cap multisig ISM validator sets at 100, on creation and on verification of existing ISMs.
 - [celestiaorg#8](https://github.com/celestiaorg/hyperlane-cosmos/pull/8) Verify routing ISMs iteratively (forward-port of v1.3.1).
 
