@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -14,6 +15,11 @@ func NewGenesisState() *GenesisState {
 }
 
 func (gs *GenesisState) Validate() error {
+	// Mirrors the InitGenesis nil check.
+	if gs == nil || gs.Igps == nil || gs.IgpGasConfigs == nil || gs.MerkleTreeHooks == nil || gs.NoopHooks == nil {
+		return errors.New("post dispatch genesis: missing data")
+	}
+
 	igpMap := make(map[uint64]struct{})
 	for _, igp := range gs.Igps {
 		if _, ok := igpMap[igp.Id.GetInternalId()]; ok {
