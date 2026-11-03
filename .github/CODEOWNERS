@@ -1,3 +1,23 @@
-# https://help.github.com/articles/about-codeowners
+# CODEOWNERS: <https://help.github.com/articles/about-codeowners/>
 
-* @damiannolan @jonas089
+# The review policy (.github/review-policy.md) auto-approves [low] and [medium]
+# PRs from trusted authors. Because the tag is chosen by the author, the files
+# that define the policy, CI, and agent behavior always need a code owner
+# approval. "Require review from Code Owners" must stay enabled on main for
+# this to be enforced.
+
+# CI, its build config, repo automation, and the review policy itself,
+# including this file.
+/.github/ @damiannolan @jonas089
+/Makefile @damiannolan @jonas089
+
+# Agent and reviewer instructions.
+/.agents/ @damiannolan @jonas089
+/.claude/ @damiannolan @jonas089
+/.cursor/ @damiannolan @jonas089
+AGENTS.md @damiannolan @jonas089
+CLAUDE.md @damiannolan @jonas089
+GEMINI.md @damiannolan @jonas089
+
+# The Contributing section defines the [low], [medium], and [high] tiers.
+/README.md @damiannolan @jonas089
