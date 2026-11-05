@@ -33,8 +33,15 @@ func (gs *GenesisState) Validate() error {
 
 	messages := make(map[uint64]map[util.HexAddress]struct{})
 	for _, m := range gs.Messages {
+		// Mailbox ids are checked below to equal their index.
+		if m.MailboxId >= uint64(len(gs.Mailboxes)) {
+			return fmt.Errorf("message (%s) for unknown mailbox %d", m.MessageId, m.MailboxId)
+		}
 		if _, ok := messages[m.MailboxId][m.MessageId]; ok {
 			return fmt.Errorf("duplicated message (%s) for mailbox %d, ", m.MessageId, m.MailboxId)
+		}
+		if messages[m.MailboxId] == nil {
+			messages[m.MailboxId] = make(map[util.HexAddress]struct{})
 		}
 		messages[m.MailboxId][m.MessageId] = struct{}{}
 	}
@@ -43,9 +50,11 @@ func (gs *GenesisState) Validate() error {
 		if mailbox.Id.GetInternalId() != uint64(i) {
 			return fmt.Errorf("duplicated mailbox id %d, %d", mailbox.Id.GetInternalId(), i)
 		}
-		receivedMessages := uint32(len(messages[mailbox.Id.GetInternalId()]))
-		if mailbox.MessageReceived != receivedMessages {
-			return fmt.Errorf("received messages (%d) != received count (%d) for mailbox %s", receivedMessages, mailbox.MessageReceived, mailbox.Id)
+		// Dispatched ids are unique by nonce and received ids by the replay check, but a received id can be dispatched again.
+		messageCount := uint64(len(messages[mailbox.Id.GetInternalId()]))
+		sent, received := uint64(mailbox.MessageSent), uint64(mailbox.MessageReceived)
+		if messageCount < max(sent, received) || messageCount > sent+received {
+			return fmt.Errorf("messages (%d) not in range [max(sent, received) (%d), sent + received (%d)] for mailbox %s", messageCount, max(sent, received), sent+received, mailbox.Id)
 		}
 	}
 

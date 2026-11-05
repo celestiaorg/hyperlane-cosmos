@@ -19,6 +19,7 @@ An '!' indicates a state machine breaking change.
 ### Bug Fixes
 
 - ! [#171](https://github.com/bcp-innovations/hyperlane-cosmos/pull/171) Reject duplicate multisig ISM validators regardless of hex casing.
+- Fix core genesis validation panicking on messages or a missing post dispatch genesis, and checking the mailbox message count against received messages only.
 
 ## [v1.2.0-rc.0](https://github.com/bcp-innovations/hyperlane-cosmos/releases/tag/v1.2.0-rc.0) - 2026-02-13
 
